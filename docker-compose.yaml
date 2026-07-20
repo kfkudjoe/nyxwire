@@ -1,5 +1,6 @@
 # Nyxwire local Compose MVP
-# Stack: gateway → streaming | history · rabbit (events) · mongo (history store)
+# Stack: gateway → streaming | history | storage | metadata | upload
+#        · rabbit (events) · mongo (history + metadata DBs)
 # Run:  docker compose up --build -d
 # Stop: docker compose down
 # Creds below are LOCAL-ONLY — never reuse outside this compose file.
@@ -115,6 +116,28 @@ services:
       retries: 12
       start_period: 15s
 
+  upload:
+    build: ./services/upload
+    container_name: nyxwire-upload
+    ports:
+      - "4005:3000"
+    environment:
+      PORT: "3000"
+      STORAGE_URL: http://storage:3000
+      METADATA_URL: http://metadata:3000
+      SERVICE_NAME: nyxwire-upload
+    depends_on:
+      storage:
+        condition: service_healthy
+      metadata:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
   gateway:
     build: ./services/gateway
     container_name: nyxwire-gateway
@@ -126,6 +149,7 @@ services:
       HISTORY_URL: http://history:3000
       STORAGE_URL: http://storage:3000
       METADATA_URL: http://metadata:3000
+      UPLOAD_URL: http://upload:3000
       SERVICE_NAME: nyxwire-gateway
       # Longer proxy timeout avoids 504 while upstream warms (race on first request)
       PROXY_TIMEOUT_MS: "60000"
@@ -137,6 +161,8 @@ services:
       storage:
         condition: service_healthy
       metadata:
+        condition: service_healthy
+      upload:
         condition: service_healthy
 
 volumes:
