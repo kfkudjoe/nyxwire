@@ -28,6 +28,10 @@ spec:
               value: http://nyxwire-streaming:3000
             - name: HISTORY_URL
               value: http://nyxwire-history:3000
+            - name: STORAGE_URL
+              value: http://nyxwire-storage-local:3000
+            - name: METADATA_URL
+              value: http://nyxwire-metadata:3000
             - name: SERVICE_NAME
               value: nyxwire-gateway
             - name: PROXY_TIMEOUT_MS

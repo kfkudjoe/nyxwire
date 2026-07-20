@@ -1,0 +1,64 @@
+# Local file storage — emptyDir is ephemeral (pod restart loses data).
+# For durable store later: PVC or hostPath. Compose remains primary for persisted local data.
+# Image: kind load docker-image nyxwire-storage-local:0.1.0
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nyxwire-storage-local
+  namespace: nyxwire
+  labels:
+    app: nyxwire-storage-local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nyxwire-storage-local
+  template:
+    metadata:
+      labels:
+        app: nyxwire-storage-local
+    spec:
+      containers:
+        - name: storage-local
+          image: nyxwire-storage-local:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: STORAGE_DIR
+              value: /data
+            - name: SERVICE_NAME
+              value: nyxwire-storage-local
+          volumeMounts:
+            - name: storage-data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        # Ephemeral MVP volume — data lost on reschedule. PVC later if needed.
+        - name: storage-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nyxwire-storage-local
+  namespace: nyxwire
+spec:
+  selector:
+    app: nyxwire-storage-local
+  ports:
+    - port: 3000
+      targetPort: 3000

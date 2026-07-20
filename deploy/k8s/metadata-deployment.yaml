@@ -1,0 +1,63 @@
+# Metadata service — needs Mongo (DBHOST). Full mongo on k8s is later (compose for now).
+# Provide external DBHOST or pods will fail until Mongo is reachable from the cluster.
+# Image: kind load docker-image nyxwire-metadata:0.1.0
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nyxwire-metadata
+  namespace: nyxwire
+  labels:
+    app: nyxwire-metadata
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nyxwire-metadata
+  template:
+    metadata:
+      labels:
+        app: nyxwire-metadata
+    spec:
+      containers:
+        - name: metadata
+          image: nyxwire-metadata:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            # Placeholders — replace with Mongo URI reachable from the cluster
+            # (app reads DBHOST; MONGODB alias documented for operators who expect that name)
+            - name: DBHOST
+              value: mongodb://mongo:27017
+            - name: MONGODB
+              value: mongodb://mongo:27017
+            - name: DBNAME
+              value: metadata
+            - name: SERVICE_NAME
+              value: nyxwire-metadata
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nyxwire-metadata
+  namespace: nyxwire
+spec:
+  selector:
+    app: nyxwire-metadata
+  ports:
+    - port: 3000
+      targetPort: 3000

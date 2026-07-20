@@ -1,0 +1,64 @@
+# History service — needs RabbitMQ + Mongo. Full rabbit/mongo on k8s is later (compose for now).
+# Provide external RABBIT_URL / DBHOST or pods will crash-loop until infra exists.
+# Image: kind load docker-image nyxwire-history:0.1.0
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nyxwire-history
+  namespace: nyxwire
+  labels:
+    app: nyxwire-history
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nyxwire-history
+  template:
+    metadata:
+      labels:
+        app: nyxwire-history
+    spec:
+      containers:
+        - name: history
+          image: nyxwire-history:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            # Placeholders — replace with real broker/DB reachable from the cluster
+            - name: RABBIT_URL
+              value: amqp://nyxwire:nyxwire@rabbit:5672
+            - name: QUEUE_NAME
+              value: viewed
+            - name: DBHOST
+              value: mongodb://mongo:27017
+            - name: DBNAME
+              value: history
+            - name: SERVICE_NAME
+              value: nyxwire-history
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nyxwire-history
+  namespace: nyxwire
+spec:
+  selector:
+    app: nyxwire-history
+  ports:
+    - port: 3000
+      targetPort: 3000
