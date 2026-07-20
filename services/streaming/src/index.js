@@ -1,16 +1,19 @@
 // Nyxwire streaming service
-// Role: stream a local video file; publish a "viewed" event to RabbitMQ.
-// Inputs: PORT, VIDEO_PATH, RABBIT_URL, QUEUE_NAME (default "viewed").
-// Outputs: GET /health, GET /video (mp4 + side-effect publish).
+// Role: stream video (local file or storage-local proxy); publish "viewed" to RabbitMQ.
+// Inputs: PORT, VIDEO_PATH and/or STORAGE_URL, RABBIT_URL, QUEUE_NAME (default "viewed").
+// Outputs: GET /health, GET /video?name= (mp4 + side-effect publish).
 // Failure modes: missing env; broker down at boot (retry); publish fail logged only.
+// STORAGE_URL set → fetch `${STORAGE_URL}/video?name=` and pipe; else VIDEO_PATH local file.
 
 "use strict";
 
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const { Readable } = require("stream");
 const amqp = require("amqplib");
 const { buildViewedPayload } = require("./viewed");
+const { buildStorageVideoUrl } = require("./storageUrl");
 
 const PORT = Number(process.env.PORT || 3000);
 const QUEUE_NAME = process.env.QUEUE_NAME || "viewed";
@@ -32,13 +35,42 @@ async function connectWithRetry(url, attempts = 30, delayMs = 2000) {
 }
 
 /**
+ * Publish viewed event; never throws to caller (log only).
+ * @param {object | null} channel
+ * @param {string} queueName
+ * @param {string} videoPath
+ */
+function publishViewed(channel, queueName, videoPath) {
+  if (!channel) return;
+  try {
+    const payload = buildViewedPayload(videoPath, "streaming");
+    channel.sendToQueue(queueName, Buffer.from(JSON.stringify(payload)), {
+      contentType: "application/json",
+    });
+  } catch (pubErr) {
+    console.error("publish failed:", pubErr.message);
+  }
+}
+
+/**
  * Build Express app. channel may be null in tests that only hit /health.
- * @param {{ channel?: object | null, videoPath?: string, queueName?: string }} opts
+ * @param {{
+ *   channel?: object | null,
+ *   videoPath?: string,
+ *   storageUrl?: string,
+ *   queueName?: string,
+ *   fetchImpl?: typeof fetch
+ * }} opts
  */
 function createApp(opts = {}) {
   const channel = opts.channel ?? null;
   const videoPath = opts.videoPath || process.env.VIDEO_PATH || "";
+  const storageUrl =
+    opts.storageUrl !== undefined
+      ? opts.storageUrl
+      : process.env.STORAGE_URL || "";
   const queueName = opts.queueName || QUEUE_NAME;
+  const fetchImpl = opts.fetchImpl || globalThis.fetch;
   const app = express();
 
   app.get("/health", (_req, res) => {
@@ -46,10 +78,61 @@ function createApp(opts = {}) {
       ok: true,
       service: SERVICE_NAME,
       brand: "nyxwire",
+      source: storageUrl ? "storage" : "local",
     });
   });
 
-  app.get("/video", (req, res) => {
+  app.get("/video", async (req, res) => {
+    const name = req.query.name;
+
+    // Prefer storage-local when STORAGE_URL is configured
+    if (storageUrl) {
+      const url = buildStorageVideoUrl(storageUrl, name);
+      const logicalPath =
+        name != null && String(name).trim() !== ""
+          ? String(name).trim()
+          : "sample.mp4";
+
+      try {
+        const upstream = await fetchImpl(url);
+        if (!upstream.ok) {
+          const status = upstream.status === 404 ? 404 : 502;
+          const msg =
+            upstream.status === 404 ? "video not found" : "storage upstream error";
+          console.error("storage fetch failed:", url, upstream.status);
+          return res.status(status).send(msg);
+        }
+
+        publishViewed(channel, queueName, logicalPath);
+
+        res.status(200);
+        res.setHeader(
+          "Content-Type",
+          upstream.headers.get("content-type") || "video/mp4"
+        );
+        const cl = upstream.headers.get("content-length");
+        if (cl) res.setHeader("Content-Length", cl);
+
+        if (!upstream.body) {
+          return res.end();
+        }
+
+        const nodeStream = Readable.fromWeb(upstream.body);
+        nodeStream.on("error", (streamErr) => {
+          console.error("storage stream error:", streamErr.message);
+          if (!res.headersSent) res.status(500).end("stream failed");
+          else res.destroy(streamErr);
+        });
+        req.on("close", () => nodeStream.destroy());
+        nodeStream.pipe(res);
+      } catch (err) {
+        console.error("storage fetch error:", err.message);
+        if (!res.headersSent) res.status(502).send("storage unreachable");
+      }
+      return;
+    }
+
+    // Backward-compatible local file path
     if (!videoPath) {
       return res.status(500).send("VIDEO_PATH not configured");
     }
@@ -60,19 +143,7 @@ function createApp(opts = {}) {
         return res.status(404).send("video not found");
       }
 
-      // Side-effect: notify history (and any other consumers)
-      if (channel) {
-        try {
-          const payload = buildViewedPayload(resolved, "streaming");
-          channel.sendToQueue(
-            queueName,
-            Buffer.from(JSON.stringify(payload)),
-            { contentType: "application/json" }
-          );
-        } catch (pubErr) {
-          console.error("publish failed:", pubErr.message);
-        }
-      }
+      publishViewed(channel, queueName, resolved);
 
       res.status(200);
       res.setHeader("Content-Type", "video/mp4");
@@ -93,10 +164,11 @@ function createApp(opts = {}) {
 
 async function main() {
   const VIDEO_PATH = process.env.VIDEO_PATH;
+  const STORAGE_URL = process.env.STORAGE_URL;
   const RABBIT_URL = process.env.RABBIT_URL;
 
-  if (!VIDEO_PATH) {
-    console.error("FATAL: set VIDEO_PATH");
+  if (!STORAGE_URL && !VIDEO_PATH) {
+    console.error("FATAL: set STORAGE_URL or VIDEO_PATH");
     process.exit(1);
   }
   if (!RABBIT_URL) {
@@ -109,9 +181,14 @@ async function main() {
   // durable:false keeps local MVP simple; prod often durable:true + persistent msgs
   await channel.assertQueue(QUEUE_NAME, { durable: false });
 
-  const app = createApp({ channel, videoPath: VIDEO_PATH });
+  const app = createApp({
+    channel,
+    videoPath: VIDEO_PATH,
+    storageUrl: STORAGE_URL || "",
+  });
   app.listen(PORT, () => {
-    console.log(`${SERVICE_NAME} on :${PORT} queue=${QUEUE_NAME}`);
+    const mode = STORAGE_URL ? `storage=${STORAGE_URL}` : `file=${VIDEO_PATH}`;
+    console.log(`${SERVICE_NAME} on :${PORT} queue=${QUEUE_NAME} ${mode}`);
   });
 }
 
@@ -122,4 +199,9 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createApp, buildViewedPayload, SERVICE_NAME };
+module.exports = {
+  createApp,
+  buildViewedPayload,
+  buildStorageVideoUrl,
+  SERVICE_NAME,
+};
