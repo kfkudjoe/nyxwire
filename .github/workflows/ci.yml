@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [streaming, storage-local]
+        service: [streaming, storage-local, metadata]
     defaults:
       run:
         working-directory: services/${{ matrix.service }}
@@ -61,7 +61,7 @@ jobs:
     needs: [quality]
     strategy:
       matrix:
-        service: [streaming, history, gateway, storage-local]
+        service: [streaming, history, gateway, storage-local, metadata]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

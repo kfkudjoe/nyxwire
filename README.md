@@ -16,6 +16,7 @@ nyxwire/
     streaming/            # file stream + publish "viewed"
     history/              # consume "viewed" → Mongo; list events
     storage-local/        # local FS video store (GET/PUT /video)
+    metadata/             # video catalog in Mongo (DB ownership separate from history)
   docs/ARCHITECTURE.md
   .github/workflows/ci.yml
 ```
@@ -48,7 +49,9 @@ Direct service ports (handy when debugging):
 | http://localhost:4001/health | streaming |
 | http://localhost:4002/health | history |
 | http://localhost:4003/health | storage-local |
+| http://localhost:4004/health | metadata |
 | http://localhost:8080/storage/video?name=sample.mp4 | storage via gateway |
+| http://localhost:8080/videos | metadata catalog |
 | http://localhost:15672 | RabbitMQ UI (`nyxwire` / `nyxwire`) |
 
 ## Defaults that matter
