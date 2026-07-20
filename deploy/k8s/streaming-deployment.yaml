@@ -1,0 +1,56 @@
+# Streaming service — image built locally; for kind: kind load docker-image nyxwire-streaming:0.1.0
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nyxwire-streaming
+  namespace: nyxwire
+  labels:
+    app: nyxwire-streaming
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nyxwire-streaming
+  template:
+    metadata:
+      labels:
+        app: nyxwire-streaming
+    spec:
+      containers:
+        - name: streaming
+          image: nyxwire-streaming:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: VIDEO_PATH
+              value: /app/videos/sample.mp4
+            # Rabbit may be compose-only in MVP; leave unset → streaming should tolerate or use empty
+            - name: SERVICE_NAME
+              value: nyxwire-streaming
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nyxwire-streaming
+  namespace: nyxwire
+spec:
+  selector:
+    app: nyxwire-streaming
+  ports:
+    - port: 3000
+      targetPort: 3000

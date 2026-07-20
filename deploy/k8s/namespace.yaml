@@ -1,0 +1,9 @@
+# Nyxwire local/kind namespace
+# Apply: kubectl apply -f deploy/k8s/
+# Cloud AKS: SIM only — do not apply paid clusters from SE-005 defaults
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nyxwire
+  labels:
+    app.kubernetes.io/part-of: nyxwire

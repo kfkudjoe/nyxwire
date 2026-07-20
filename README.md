@@ -1,5 +1,7 @@
 # Nyxwire
 
+**Repository:** https://github.com/kfkudjoe/nyxwire
+
 Stream video. Remember what was watched. One compose command on your laptop.
 
 Nyxwire is the longitudinal product for SE-005 — a small microservices system you can run, break, and grow. Not a lab dump: clean monorepo, product naming only, local Docker first.
