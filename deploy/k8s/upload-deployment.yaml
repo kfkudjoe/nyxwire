@@ -1,41 +1,38 @@
-# Metadata service — needs Mongo (deploy mongo.yaml first).
-# Service DNS: mongodb://mongo:27017 (namespace nyxwire).
-# Image: kind load docker-image nyxwire-metadata:0.1.0
+# Upload service — orchestrates storage + metadata for video ingest.
+# Image: kind load docker-image nyxwire-upload:0.1.0
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nyxwire-metadata
+  name: nyxwire-upload
   namespace: nyxwire
   labels:
-    app: nyxwire-metadata
+    app: nyxwire-upload
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nyxwire-metadata
+      app: nyxwire-upload
   template:
     metadata:
       labels:
-        app: nyxwire-metadata
+        app: nyxwire-upload
     spec:
       containers:
-        - name: metadata
-          image: nyxwire-metadata:0.1.0
+        - name: upload
+          image: nyxwire-upload:0.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
           env:
             - name: PORT
               value: "3000"
-            # In-cluster mongo service (app reads DBHOST; MONGODB alias for operators)
-            - name: DBHOST
-              value: mongodb://mongo:27017
-            - name: MONGODB
-              value: mongodb://mongo:27017
-            - name: DBNAME
-              value: metadata
+            # In-cluster service DNS (namespace nyxwire)
+            - name: STORAGE_URL
+              value: http://nyxwire-storage-local:3000
+            - name: METADATA_URL
+              value: http://nyxwire-metadata:3000
             - name: SERVICE_NAME
-              value: nyxwire-metadata
+              value: nyxwire-upload
           readinessProbe:
             httpGet:
               path: /health
@@ -52,11 +49,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: nyxwire-metadata
+  name: nyxwire-upload
   namespace: nyxwire
 spec:
   selector:
-    app: nyxwire-metadata
+    app: nyxwire-upload
   ports:
     - port: 3000
       targetPort: 3000

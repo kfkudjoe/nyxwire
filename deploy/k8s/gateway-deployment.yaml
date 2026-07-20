@@ -32,6 +32,8 @@ spec:
               value: http://nyxwire-storage-local:3000
             - name: METADATA_URL
               value: http://nyxwire-metadata:3000
+            - name: UPLOAD_URL
+              value: http://nyxwire-upload:3000
             - name: SERVICE_NAME
               value: nyxwire-gateway
             - name: PROXY_TIMEOUT_MS

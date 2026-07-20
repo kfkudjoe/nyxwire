@@ -1,5 +1,5 @@
-# History service — needs RabbitMQ + Mongo. Full rabbit/mongo on k8s is later (compose for now).
-# Provide external RABBIT_URL / DBHOST or pods will crash-loop until infra exists.
+# History service — needs RabbitMQ + Mongo (deploy rabbit.yaml + mongo.yaml first).
+# Service DNS: rabbit:5672, mongo:27017 (namespace nyxwire).
 # Image: kind load docker-image nyxwire-history:0.1.0
 apiVersion: apps/v1
 kind: Deployment
@@ -27,7 +27,7 @@ spec:
           env:
             - name: PORT
               value: "3000"
-            # Placeholders — replace with real broker/DB reachable from the cluster
+            # In-cluster service names: rabbit / mongo (see rabbit.yaml, mongo.yaml)
             - name: RABBIT_URL
               value: amqp://nyxwire:nyxwire@rabbit:5672
             - name: QUEUE_NAME
