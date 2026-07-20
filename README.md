@@ -62,7 +62,7 @@ Direct service ports (handy when debugging):
 - **Mongo** holds history only. Streaming never touches it.
 - **RabbitMQ** carries `viewed` events from streaming → history.
 - **Gateway** is the public face; browsers and scripts can talk to `:8080` alone.
-- Sample media lives at `services/streaming/videos/sample.mp4` (baked into the streaming image).
+- Sample media lives at `services/streaming/videos/sample.mp4` (baked into the streaming image). With `STORAGE_URL` set (Compose default), streaming fetches bytes from storage-local instead.
 
 ## Tests (host)
 
