@@ -27,7 +27,11 @@ spec:
               value: "3000"
             - name: VIDEO_PATH
               value: /app/videos/sample.mp4
-            # Rabbit may be compose-only in MVP; leave unset → streaming should tolerate or use empty
+            # In-cluster rabbit service (lab creds — see rabbit.yaml / README)
+            - name: RABBIT_URL
+              value: amqp://nyxwire:nyxwire@rabbit:5672
+            - name: QUEUE_NAME
+              value: viewed
             - name: SERVICE_NAME
               value: nyxwire-streaming
           readinessProbe:
