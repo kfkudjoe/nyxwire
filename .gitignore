@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs & runtime
+*.log
+npm-debug.log*
+logs/
+tmp/
+.temp/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+*.code-workspace
+
+# Terraform (if later IaC lands here)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+tfplan
+*.tfplan
+
+# Docker / compose noise
+docker-compose.override.yml
+
+# Test / coverage
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# Sandbox / lab noise (never ship lab dumps into product)
+sandboxes/
+**/lab-ch*/
+
+# Build artifacts
+dist/
+build/
+*.tgz

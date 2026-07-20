@@ -1,0 +1,20 @@
+{
+  "name": "nyxwire-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nyxwire edge gateway — health + reverse proxy to streaming/history",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "start:dev": "node --watch src/index.js",
+    "lint": "node --check src/index.js",
+    "test": "echo \"gateway: no unit tests yet\" && exit 0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "http-proxy-middleware": "^3.0.2"
+  }
+}

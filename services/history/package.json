@@ -1,0 +1,21 @@
+{
+  "name": "nyxwire-history",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nyxwire history service — consumes viewed events into MongoDB",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "start:dev": "node --watch src/index.js",
+    "lint": "node --check src/index.js",
+    "test": "echo \"history: no unit tests yet\" && exit 0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "express": "^4.21.0",
+    "mongodb": "^6.8.0"
+  }
+}

@@ -1,0 +1,99 @@
+# Nyxwire local Compose MVP
+# Stack: gateway → streaming | history · rabbit (events) · mongo (history store)
+# Run:  docker compose up --build -d
+# Stop: docker compose down
+# Creds below are LOCAL-ONLY — never reuse outside this compose file.
+
+services:
+  rabbit:
+    image: rabbitmq:3.13-management-alpine
+    container_name: nyxwire-rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: nyxwire
+      RABBITMQ_DEFAULT_PASS: nyxwire
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  mongo:
+    image: mongo:7
+    container_name: nyxwire-mongo
+    # No host port — keep Mongo private to the compose network
+    volumes:
+      - nyxwire-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  streaming:
+    build: ./services/streaming
+    container_name: nyxwire-streaming
+    ports:
+      - "4001:3000"
+    environment:
+      PORT: "3000"
+      VIDEO_PATH: /app/videos/sample.mp4
+      RABBIT_URL: amqp://nyxwire:nyxwire@rabbit:5672
+      QUEUE_NAME: viewed
+      SERVICE_NAME: nyxwire-streaming
+    depends_on:
+      rabbit:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  history:
+    build: ./services/history
+    container_name: nyxwire-history
+    ports:
+      - "4002:3000"
+    environment:
+      PORT: "3000"
+      RABBIT_URL: amqp://nyxwire:nyxwire@rabbit:5672
+      QUEUE_NAME: viewed
+      DBHOST: mongodb://mongo:27017
+      DBNAME: history
+      SERVICE_NAME: nyxwire-history
+    depends_on:
+      rabbit:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  gateway:
+    build: ./services/gateway
+    container_name: nyxwire-gateway
+    ports:
+      - "8080:3000"
+    environment:
+      PORT: "3000"
+      STREAMING_URL: http://streaming:3000
+      HISTORY_URL: http://history:3000
+      SERVICE_NAME: nyxwire-gateway
+      # Longer proxy timeout avoids 504 while upstream warms (race on first request)
+      PROXY_TIMEOUT_MS: "60000"
+    depends_on:
+      streaming:
+        condition: service_healthy
+      history:
+        condition: service_healthy
+
+volumes:
+  nyxwire-mongo-data:

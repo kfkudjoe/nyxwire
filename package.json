@@ -1,0 +1,15 @@
+{
+  "name": "nyxwire",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nyxwire — video streaming product monorepo (local Compose MVP)",
+  "scripts": {
+    "test": "npm test --prefix services/streaming",
+    "lint": "npm run lint --prefix services/streaming && npm run lint --prefix services/history && npm run lint --prefix services/gateway",
+    "start:compose": "docker compose up --build -d",
+    "stop:compose": "docker compose down"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
