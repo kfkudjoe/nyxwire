@@ -12,9 +12,10 @@ Nyxwire is the longitudinal product for SE-005 — a small microservices system 
 nyxwire/
   docker-compose.yaml     # rabbit + mongo + streaming + history + gateway
   services/
-    gateway/              # edge: /health, /video, /history
+    gateway/              # edge: /health, /video, /history, /storage/*
     streaming/            # file stream + publish "viewed"
     history/              # consume "viewed" → Mongo; list events
+    storage-local/        # local FS video store (GET/PUT /video)
   docs/ARCHITECTURE.md
   .github/workflows/ci.yml
 ```
@@ -46,6 +47,8 @@ Direct service ports (handy when debugging):
 | http://localhost:8080/health | gateway |
 | http://localhost:4001/health | streaming |
 | http://localhost:4002/health | history |
+| http://localhost:4003/health | storage-local |
+| http://localhost:8080/storage/video?name=sample.mp4 | storage via gateway |
 | http://localhost:15672 | RabbitMQ UI (`nyxwire` / `nyxwire`) |
 
 ## Defaults that matter

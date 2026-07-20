@@ -16,6 +16,7 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 const PORT = Number(process.env.PORT || 3000);
 const STREAMING_URL = process.env.STREAMING_URL || "http://streaming:3000";
 const HISTORY_URL = process.env.HISTORY_URL || "http://history:3000";
+const STORAGE_URL = process.env.STORAGE_URL || "http://storage:3000";
 const SERVICE_NAME = process.env.SERVICE_NAME || "nyxwire-gateway";
 // Default 60s — streaming may publish MQ before finishing body on slow hosts
 const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS || 60000);
@@ -30,6 +31,7 @@ app.get("/health", (_req, res) => {
     upstreams: {
       streaming: STREAMING_URL,
       history: HISTORY_URL,
+      storage: STORAGE_URL,
     },
   });
 });
@@ -72,12 +74,28 @@ app.use(
   })
 );
 
+// Storage: /storage/* → storage service paths (/video, /files)
+app.use(
+  createProxyMiddleware({
+    ...proxyCommon,
+    target: STORAGE_URL,
+    pathFilter: (pathname) => pathname.startsWith("/storage"),
+    pathRewrite: {
+      "^/storage": "",
+    },
+  })
+);
+
 app.get("/", (_req, res) => {
-  res.status(200).type("text").send("Nyxwire gateway · /health · /video · /history\n");
+  res
+    .status(200)
+    .type("text")
+    .send("Nyxwire gateway · /health · /video · /history · /storage/video\n");
 });
 
 app.listen(PORT, () => {
   console.log(`${SERVICE_NAME} on :${PORT}`);
   console.log(`  streaming → ${STREAMING_URL}`);
   console.log(`  history   → ${HISTORY_URL}`);
+  console.log(`  storage   → ${STORAGE_URL}`);
 });
