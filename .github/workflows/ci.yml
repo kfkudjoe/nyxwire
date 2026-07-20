@@ -29,11 +29,14 @@ env:
 
 jobs:
   quality:
-    name: lint-and-test-streaming
+    name: lint-and-test-services
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [streaming, storage-local]
     defaults:
       run:
-        working-directory: services/streaming
+        working-directory: services/${{ matrix.service }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,7 +61,7 @@ jobs:
     needs: [quality]
     strategy:
       matrix:
-        service: [streaming, history, gateway]
+        service: [streaming, history, gateway, storage-local]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

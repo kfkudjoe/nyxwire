@@ -32,6 +32,24 @@ services:
       timeout: 5s
       retries: 12
 
+  storage:
+    build: ./services/storage-local
+    container_name: nyxwire-storage
+    ports:
+      - "4003:3000"
+    volumes:
+      - nyxwire-storage-data:/data
+    environment:
+      PORT: "3000"
+      STORAGE_DIR: /data
+      SERVICE_NAME: nyxwire-storage-local
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
   streaming:
     build: ./services/streaming
     container_name: nyxwire-streaming
@@ -86,6 +104,7 @@ services:
       PORT: "3000"
       STREAMING_URL: http://streaming:3000
       HISTORY_URL: http://history:3000
+      STORAGE_URL: http://storage:3000
       SERVICE_NAME: nyxwire-gateway
       # Longer proxy timeout avoids 504 while upstream warms (race on first request)
       PROXY_TIMEOUT_MS: "60000"
@@ -94,6 +113,9 @@ services:
         condition: service_healthy
       history:
         condition: service_healthy
+      storage:
+        condition: service_healthy
 
 volumes:
   nyxwire-mongo-data:
+  nyxwire-storage-data:
